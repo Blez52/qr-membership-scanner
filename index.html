@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -6,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>QR Membership — Сканер</title>
 
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      padding: 20px;
+      padding: 16px;
       font-family: Arial, sans-serif;
       background: #f3f6fb;
       color: #182230;
@@ -21,17 +20,14 @@
 
     .container {
       max-width: 480px;
-      margin: 30px auto;
+      margin: 20px auto;
       padding: 24px;
       background: white;
       border-radius: 16px;
       box-shadow: 0 4px 20px rgba(0,0,0,.08);
     }
 
-    h2 {
-      margin-top: 0;
-      text-align: center;
-    }
+    h2 { margin-top: 0; text-align: center; }
 
     input, button {
       width: 100%;
@@ -41,9 +37,7 @@
       font-size: 16px;
     }
 
-    input {
-      border: 1px solid #cbd5e1;
-    }
+    input { border: 1px solid #cbd5e1; }
 
     button {
       border: 0;
@@ -53,18 +47,15 @@
       cursor: pointer;
     }
 
-    button:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-    }
+    button:disabled { opacity: .5; cursor: not-allowed; }
 
-    #stopButton {
-      background: #667085;
-    }
+    #stopButton { background: #667085; }
 
     #reader {
       width: 100%;
       margin-top: 18px;
+      border-radius: 10px;
+      overflow: hidden;
     }
 
     #result {
@@ -74,23 +65,14 @@
       background: #eef2f7;
       line-height: 1.5;
       overflow-wrap: anywhere;
+      white-space: pre-line;
+      font-size: 17px;
     }
 
-    .success {
-      background: #dcfce7 !important;
-      color: #166534;
-    }
+    .success { background: #dcfce7 !important; color: #166534; }
+    .error   { background: #fee2e2 !important; color: #991b1b; }
 
-    .error {
-      background: #fee2e2 !important;
-      color: #991b1b;
-    }
-
-    .hint {
-      color: #667085;
-      font-size: 14px;
-      line-height: 1.5;
-    }
+    .hint { color: #667085; font-size: 14px; line-height: 1.5; }
   </style>
 </head>
 
@@ -98,59 +80,35 @@
   <div class="container">
     <h2>QR Membership</h2>
 
-    <p class="hint">
-      Введите PIN администратора и нажмите «Начать сканирование».
-    </p>
+    <p class="hint">Введите PIN администратора и нажмите «Начать сканирование».</p>
 
-    <input
-      type="password"
-      id="pin"
-      placeholder="PIN администратора"
-      inputmode="numeric"
-      autocomplete="off"
-    >
+    <input type="password" id="pin" placeholder="PIN администратора"
+           inputmode="numeric" autocomplete="off">
 
-    <button id="startButton" onclick="startScanner()">
-      Начать сканирование
-    </button>
-
-    <button id="stopButton" onclick="stopScanner()" disabled>
-      Остановить камеру
-    </button>
+    <button id="startButton" onclick="startScanner()">Начать сканирование</button>
+    <button id="stopButton" onclick="stopScanner()" disabled>Остановить камеру</button>
 
     <div id="reader"></div>
 
-    <div id="result">
-      Ожидание сканирования QR-кода
-    </div>
+    <div id="result">Ожидание сканирования QR-кода</div>
   </div>
 
-  <!-- Скрытый iframe для обмена данными с Apps Script -->
-  <iframe
-    name="gasResultFrame"
-    id="gasResultFrame"
-    style="display:none"
-  ></iframe>
-
-  <form
-    id="scanForm"
-    method="POST"
-    target="gasResultFrame"
-    action="https://script.google.com/macros/s/AKfycbxwwCjRbsbEEitckhPzRGmnJEu6DHvVb85anT2-hboTeaPLSKW4sIeYoNJ1ioy2R_h3/exec"
-    style="display:none"
-  >
-    <input type="hidden" name="token" id="formToken">
-    <input type="hidden" name="pin" id="formPin">
-  </form>
-
   <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxwwCjRbsbEEitckhPzRGmnJEu6DHvVb85anT2-hboTeaPLSKW4sIeYoNJ1ioy2R_h3/exec';
+
     let scanner = null;
     let isScanning = false;
     let isSending = false;
 
+    const pinInput = document.getElementById('pin');
     const resultBox = document.getElementById('result');
     const startButton = document.getElementById('startButton');
     const stopButton = document.getElementById('stopButton');
+
+    try { pinInput.value = localStorage.getItem('qr_pin') || ''; } catch (e) {}
+    pinInput.addEventListener('change', () => {
+      try { localStorage.setItem('qr_pin', pinInput.value.trim()); } catch (e) {}
+    });
 
     function showResult(message, type) {
       resultBox.className = type || '';
@@ -158,130 +116,10 @@
     }
 
     async function startScanner() {
-      const pin = document.getElementById('pin').value.trim();
+      const pin = pinInput.value.trim();
 
       if (!pin) {
         showResult('Введите PIN администратора', 'error');
         return;
       }
-
-      if (isScanning) return;
-
-      if (!navigator.mediaDevices ||
-          !navigator.mediaDevices.getUserMedia) {
-        showResult(
-          'Браузер не поддерживает доступ к камере. Откройте страницу через HTTPS в Safari или Chrome.',
-          'error'
-        );
-        return;
-      }
-
-      try {
-        showResult('Запрашиваем доступ к камере...', '');
-
-        scanner = new Html5Qrcode('reader');
-
-        await scanner.start(
-          { facingMode: 'environment' },
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 }
-          },
-          onQrScanned,
-          function() {}
-        );
-
-        isScanning = true;
-        startButton.disabled = true;
-        stopButton.disabled = false;
-
-        showResult('Камера работает. Наведите её на QR-код клиента.', '');
-
-      } catch (error) {
-        scanner = null;
-        showResult(
-          'Не удалось запустить камеру: ' + error,
-          'error'
-        );
-      }
-    }
-
-    async function onQrScanned(decodedText) {
-      if (isSending) return;
-
-      isSending = true;
-
-      try {
-        await stopScanner();
-
-        const token = String(decodedText || '').trim();
-        const pin = document.getElementById('pin').value.trim();
-
-        if (!token) {
-          throw new Error('QR-код пустой');
-        }
-
-        document.getElementById('formToken').value = token;
-        document.getElementById('formPin').value = pin;
-
-        showResult('Проверяем абонемент...', '');
-
-        document.getElementById('scanForm').submit();
-
-      } catch (error) {
-        isSending = false;
-        showResult(error.message || String(error), 'error');
-      }
-    }
-
-    async function stopScanner() {
-      if (scanner && isScanning) {
-        try {
-          await scanner.stop();
-          await scanner.clear();
-        } catch (error) {
-          console.log(error);
-        }
-      }
-
-      scanner = null;
-      isScanning = false;
-
-      startButton.disabled = false;
-      stopButton.disabled = true;
-    }
-
-    window.addEventListener('message', function(event) {
-      if (event.source !==
-          document.getElementById('gasResultFrame').contentWindow) {
-        return;
-      }
-
-      const message = event.data;
-
-      if (!message ||
-          message.type !== 'QR_MEMBERSHIP_RESULT') {
-        return;
-      }
-
-      const result = message.result || {};
-
-      if (result.success) {
-        showResult(
-          'УСПЕШНО!\n' +
-          'Клиент: ' + result.name + '\n' +
-          'Осталось занятий: ' + result.remaining,
-          'success'
-        );
-      } else {
-        showResult(
-          'ОТКАЗ: ' + (result.error || 'Не удалось проверить абонемент'),
-          'error'
-        );
-      }
-
-      isSending = false;
-    });
-  </script>
-</body>
-</html>
+      if (isScanning || isSending) return;
