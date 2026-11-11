@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BPrimo</title>
+  <link rel="apple-touch-icon" href="logo.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="BPrimo">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="logo.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#181818">
+
+  <style>
+    body {
+      margin: 0; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #181818; color: #e8e8e8;
+      font-family: Georgia, 'Times New Roman', serif; text-align: center; padding: 24px;
+      box-sizing: border-box;
+    }
+    img { width: 220px; height: 220px; border-radius: 28px; }
+    a.btn {
+      display: block; margin-top: 28px; padding: 16px 28px; border-radius: 12px;
+      background: #b8433d; color: #fff; text-decoration: none;
+      font-family: Arial, sans-serif; font-weight: bold; font-size: 18px;
+    }
+    p { color: #9a9a9a; font-family: Arial, sans-serif; font-size: 14px; max-width: 320px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <img src="logo.png" alt="BPrimo Dance Studio">
+  <a class="btn" id="openBtn" href="#">Открыть приложение</a>
+  <p>
+    Добавить иконку на экран:<br>
+    iPhone — Safari → «Поделиться» → «На экран Домой».<br>
+    Android — Chrome → ⋮ → «Добавить на главный экран».
+  </p>
+
+  <script>
+    const APP_URL = 'https://script.google.com/macros/s/AKfycbxwwCjRbsbEEitckhPzRGmnJEu6DHvVb85anT2-hboTeaPLSKW4sIeYoNJ1ioy2R_h3/exec';
+
+    document.getElementById('openBtn').href = APP_URL;
+    const fromIconIphone = window.navigator.standalone === true;
+    const fromIconAndroid =
+      new URLSearchParams(location.search).get('launch') === '1' ||
+      window.matchMedia('(display-mode: standalone)').matches;
+
+    if (fromIconIphone || fromIconAndroid) {
+      location.replace(APP_URL);
+    }
+  </script>
+</body>
+</html>
